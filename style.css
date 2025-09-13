@@ -160,8 +160,11 @@ button:disabled {
         "left  .     right"
         ".     down  .";
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    max-width: 150px;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 12px;
+    max-width: 180px;
+    justify-items: center;
+    align-items: center;
 }
 
 .dpad-right {
@@ -358,7 +361,8 @@ button:disabled {
     }
     
     .dpad-left {
-        max-width: 130px;
+        max-width: 150px;
+        gap: 10px;
     }
     
     .dpad-btn {
