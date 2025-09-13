@@ -385,37 +385,80 @@ class QixGame {
         }
         return false;
     }
+
+    // Check if a point is inside any claimed territory
+    isInsideClaimedTerritory(x, y) {
+        for (const area of this.territory) {
+            if (x > area.x && x < area.x + area.width && 
+                y > area.y && y < area.y + area.height) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Check if a point is on any valid border (outer border or territory border)
+    isOnValidBorder(x, y) {
+        const tolerance = 5;
+        
+        // Check outer borders
+        const onOuterBorder = (
+            Math.abs(x - 50) <= tolerance || Math.abs(x - (this.width - 50)) <= tolerance ||
+            Math.abs(y - 50) <= tolerance || Math.abs(y - (this.height - 50)) <= tolerance
+        );
+        
+        if (onOuterBorder) return true;
+        
+        // Check territory borders
+        return this.isOnTerritoryBorder(x, y);
+    }
     
     updatePlayer() {
         const prevX = this.player.x;
         const prevY = this.player.y;
         
+        // Calculate intended new position
+        let newX = this.player.x;
+        let newY = this.player.y;
+        
         // Player movement - handle both keyboard and mobile controls
         if (this.keys['ArrowLeft'] || this.mobileControls.left) {
-            this.player.x -= this.player.speed;
+            newX -= this.player.speed;
         }
         if (this.keys['ArrowRight'] || this.mobileControls.right) {
-            this.player.x += this.player.speed;
+            newX += this.player.speed;
         }
         if (this.keys['ArrowUp'] || this.mobileControls.up) {
-            this.player.y -= this.player.speed;
+            newY -= this.player.speed;
         }
         if (this.keys['ArrowDown'] || this.mobileControls.down) {
-            this.player.y += this.player.speed;
+            newY += this.player.speed;
         }
         
         // Boundary checking
-        this.player.x = Math.max(50, Math.min(this.width - 50, this.player.x));
-        this.player.y = Math.max(50, Math.min(this.height - 50, this.player.y));
+        newX = Math.max(50, Math.min(this.width - 50, newX));
+        newY = Math.max(50, Math.min(this.height - 50, newY));
+        
+        // Restrict movement to borders only - player can only move on valid borders
+        if (this.isOnValidBorder(newX, newY)) {
+            this.player.x = newX;
+            this.player.y = newY;
+        } else {
+            // If the intended position is not on a border, try to move along the closest border
+            // Check if we can move in individual directions
+            let canMoveX = this.isOnValidBorder(newX, this.player.y);
+            let canMoveY = this.isOnValidBorder(this.player.x, newY);
+            
+            if (canMoveX) {
+                this.player.x = newX;
+            }
+            if (canMoveY) {
+                this.player.y = newY;
+            }
+        }
         
         // Check if player is on border (outer border or territory border)
-        const onOuterBorder = (
-            this.player.x <= 55 || this.player.x >= this.width - 55 ||
-            this.player.y <= 55 || this.player.y >= this.height - 55
-        );
-        const onTerritoryBorder = this.isOnTerritoryBorder(this.player.x, this.player.y);
-        
-        this.player.onBorder = onOuterBorder || onTerritoryBorder;
+        this.player.onBorder = this.isOnValidBorder(this.player.x, this.player.y);
         
         // Add to current line if drawing
         if (this.player.drawing && (this.player.x !== prevX || this.player.y !== prevY)) {
@@ -424,9 +467,23 @@ class QixGame {
     }
     
     updateQix() {
+        // Calculate intended new position
+        let newX = this.qix.x + this.qix.vx;
+        let newY = this.qix.y + this.qix.vy;
+        
+        // Check if new position would be inside claimed territory
+        if (this.isInsideClaimedTerritory(newX, newY)) {
+            // Bounce off territory - reverse direction
+            this.qix.vx *= -1;
+            this.qix.vy *= -1;
+            // Recalculate new position with reversed direction
+            newX = this.qix.x + this.qix.vx;
+            newY = this.qix.y + this.qix.vy;
+        }
+        
         // Move Qix
-        this.qix.x += this.qix.vx;
-        this.qix.y += this.qix.vy;
+        this.qix.x = newX;
+        this.qix.y = newY;
         
         // Bounce off boundaries (inside the play area)
         if (this.qix.x <= 70 || this.qix.x >= this.width - 70) {
@@ -434,6 +491,20 @@ class QixGame {
         }
         if (this.qix.y <= 70 || this.qix.y >= this.height - 70) {
             this.qix.vy *= -1;
+        }
+        
+        // Ensure Qix stays out of claimed territories after boundary bouncing
+        if (this.isInsideClaimedTerritory(this.qix.x, this.qix.y)) {
+            // Move Qix to a safe position outside claimed territories
+            this.qix.x = Math.max(70, Math.min(this.width - 70, this.qix.x));
+            this.qix.y = Math.max(70, Math.min(this.height - 70, this.qix.y));
+            
+            // If still inside territory, find nearest edge
+            if (this.isInsideClaimedTerritory(this.qix.x, this.qix.y)) {
+                // Move to center if all else fails
+                this.qix.x = this.width / 2;
+                this.qix.y = this.height / 2;
+            }
         }
         
         // Add to trail
