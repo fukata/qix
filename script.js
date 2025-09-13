@@ -667,7 +667,6 @@ class QixGame {
 let game;
 document.addEventListener('DOMContentLoaded', () => {
     game = new QixGame();
-    window.game = game; // Expose game instance for testing
     game.draw();
     
     // Make canvas responsive
