@@ -6,12 +6,18 @@ class QixGame {
         this.width = this.canvas.width;
         this.height = this.canvas.height;
         
+        // Mobile detection
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                       ('ontouchstart' in window) || 
+                       (navigator.maxTouchPoints > 0);
+        
         // Game state
         this.gameRunning = false;
         this.gamePaused = false;
         this.score = 0;
         this.lives = 3;
         this.territoryPercentage = 0;
+        this.gameStartTime = 0; // Add start time for collision grace period
         
         // Player
         this.player = {
@@ -41,14 +47,23 @@ class QixGame {
             trail: []
         };
         
-        // Sparks (border enemies)
+        // Sparks (border enemies) - start them farther apart to avoid immediate collision
         this.sparks = [
             { x: 100, y: 50, direction: 1, speed: 1, onBorder: true },
-            { x: this.width - 100, y: this.height - 50, direction: -1, speed: 1.2, onBorder: true }
+            { x: this.width - 100, y: 50, direction: -1, speed: 1.2, onBorder: true }
         ];
+        
+        // Mobile controls state
+        this.mobileControls = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
         
         this.initializeEventListeners();
         this.initializeUI();
+        this.initializeMobileControls();
     }
     
     initializeBorders() {
@@ -97,9 +112,131 @@ class QixGame {
         this.updateUI();
     }
     
+    initializeMobileControls() {
+        // Show/hide mobile controls based on device
+        if (this.isMobile) {
+            document.querySelector('.mobile-controls-container').style.display = 'block';
+            document.querySelector('.mobile-controls').style.display = 'block';
+            document.querySelector('.desktop-controls').style.display = 'none';
+        }
+        
+        // Touch controls for virtual d-pad
+        const setupTouchControl = (buttonId, control) => {
+            const button = document.getElementById(buttonId);
+            if (!button) return;
+            
+            const startControl = (e) => {
+                e.preventDefault();
+                this.mobileControls[control] = true;
+                button.style.transform = 'scale(0.95)';
+            };
+            
+            const endControl = (e) => {
+                e.preventDefault();
+                this.mobileControls[control] = false;
+                button.style.transform = 'scale(1)';
+            };
+            
+            // Touch events
+            button.addEventListener('touchstart', startControl, { passive: false });
+            button.addEventListener('touchend', endControl, { passive: false });
+            button.addEventListener('touchcancel', endControl, { passive: false });
+            
+            // Mouse events for testing on desktop
+            button.addEventListener('mousedown', startControl);
+            button.addEventListener('mouseup', endControl);
+            button.addEventListener('mouseleave', endControl);
+        };
+        
+        // Setup direction controls
+        setupTouchControl('upBtn', 'up');
+        setupTouchControl('downBtn', 'down');
+        setupTouchControl('leftBtn', 'left');
+        setupTouchControl('rightBtn', 'right');
+        
+        // Draw button
+        const drawBtn = document.getElementById('drawBtn');
+        if (drawBtn) {
+            const handleDraw = (e) => {
+                e.preventDefault();
+                this.toggleDrawing();
+            };
+            
+            drawBtn.addEventListener('touchstart', handleDraw, { passive: false });
+            drawBtn.addEventListener('click', handleDraw);
+        }
+        
+        // Canvas touch controls for direct movement
+        this.setupCanvasTouchControls();
+    }
+    
+    setupCanvasTouchControls() {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let isTouch = false;
+        
+        this.canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            
+            touchStartX = (touch.clientX - rect.left) * scaleX;
+            touchStartY = (touch.clientY - rect.top) * scaleY;
+            isTouch = true;
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isTouch || !this.gameRunning || this.gamePaused) return;
+            
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const scaleX = this.canvas.width / rect.width;
+            const scaleY = this.canvas.height / rect.height;
+            
+            const currentX = (touch.clientX - rect.left) * scaleX;
+            const currentY = (touch.clientY - rect.top) * scaleY;
+            
+            const deltaX = currentX - touchStartX;
+            const deltaY = currentY - touchStartY;
+            
+            // Move player based on touch direction
+            if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                const targetX = this.player.x + deltaX * 0.1;
+                const targetY = this.player.y + deltaY * 0.1;
+                
+                // Update player position gradually
+                this.player.x = Math.max(50, Math.min(this.width - 50, targetX));
+                this.player.y = Math.max(50, Math.min(this.height - 50, targetY));
+                
+                touchStartX = currentX;
+                touchStartY = currentY;
+            }
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isTouch = false;
+        }, { passive: false });
+        
+        // Double tap to toggle drawing
+        let lastTap = 0;
+        this.canvas.addEventListener('touchend', (e) => {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 500 && tapLength > 0) {
+                this.toggleDrawing();
+            }
+            lastTap = currentTime;
+        });
+    }
+    
     startGame() {
         this.gameRunning = true;
         this.gamePaused = false;
+        this.gameStartTime = Date.now(); // Record start time
         document.getElementById('startButton').disabled = true;
         document.getElementById('pauseButton').disabled = false;
         this.gameLoop();
@@ -119,6 +256,7 @@ class QixGame {
         this.score = 0;
         this.lives = 3;
         this.territoryPercentage = 0;
+        this.gameStartTime = 0;
         this.player.x = 50;
         this.player.y = this.height - 50;
         this.player.drawing = false;
@@ -131,6 +269,20 @@ class QixGame {
         this.qix.vx = 2;
         this.qix.vy = 1.5;
         this.qix.trail = [];
+        
+        // Reset sparks to original positions
+        this.sparks = [
+            { x: 100, y: 50, direction: 1, speed: 1, onBorder: true },
+            { x: this.width - 100, y: 50, direction: -1, speed: 1.2, onBorder: true }
+        ];
+        
+        // Reset mobile controls
+        this.mobileControls = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
         
         document.getElementById('startButton').disabled = false;
         document.getElementById('pauseButton').disabled = true;
@@ -220,17 +372,17 @@ class QixGame {
         const prevX = this.player.x;
         const prevY = this.player.y;
         
-        // Player movement
-        if (this.keys['ArrowLeft']) {
+        // Player movement - handle both keyboard and mobile controls
+        if (this.keys['ArrowLeft'] || this.mobileControls.left) {
             this.player.x -= this.player.speed;
         }
-        if (this.keys['ArrowRight']) {
+        if (this.keys['ArrowRight'] || this.mobileControls.right) {
             this.player.x += this.player.speed;
         }
-        if (this.keys['ArrowUp']) {
+        if (this.keys['ArrowUp'] || this.mobileControls.up) {
             this.player.y -= this.player.speed;
         }
-        if (this.keys['ArrowDown']) {
+        if (this.keys['ArrowDown'] || this.mobileControls.down) {
             this.player.y += this.player.speed;
         }
         
@@ -304,6 +456,11 @@ class QixGame {
     }
     
     checkCollisions() {
+        // Grace period of 2 seconds after game start to avoid immediate collision
+        if (Date.now() - this.gameStartTime < 2000) {
+            return;
+        }
+        
         // Check collision with Qix
         const qixDist = Math.sqrt(
             (this.player.x - this.qix.x) ** 2 + (this.player.y - this.qix.y) ** 2
@@ -492,6 +649,37 @@ let game;
 document.addEventListener('DOMContentLoaded', () => {
     game = new QixGame();
     game.draw();
+    
+    // Make canvas responsive
+    function resizeCanvas() {
+        const canvas = game.canvas;
+        const container = canvas.parentElement;
+        const containerWidth = container.clientWidth;
+        const containerHeight = window.innerHeight * 0.5; // Max 50% of viewport height
+        
+        // Calculate scale to maintain aspect ratio
+        const scale = Math.min(
+            containerWidth / canvas.width,
+            containerHeight / canvas.height
+        );
+        
+        if (scale < 1) {
+            canvas.style.width = (canvas.width * scale) + 'px';
+            canvas.style.height = (canvas.height * scale) + 'px';
+        } else {
+            canvas.style.width = canvas.width + 'px';
+            canvas.style.height = canvas.height + 'px';
+        }
+    }
+    
+    // Initial resize
+    resizeCanvas();
+    
+    // Resize on window resize and orientation change
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(resizeCanvas, 100); // Delay to allow orientation change to complete
+    });
 });
 
 // Global function for game over button
