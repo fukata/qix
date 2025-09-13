@@ -439,21 +439,28 @@ class QixGame {
         newX = Math.max(50, Math.min(this.width - 50, newX));
         newY = Math.max(50, Math.min(this.height - 50, newY));
         
-        // Restrict movement to borders only - player can only move on valid borders
-        if (this.isOnValidBorder(newX, newY)) {
+        // Allow free movement while drawing, restrict to borders when not drawing
+        if (this.player.drawing) {
+            // Free movement while drawing
             this.player.x = newX;
             this.player.y = newY;
         } else {
-            // If the intended position is not on a border, try to move along the closest border
-            // Check if we can move in individual directions
-            let canMoveX = this.isOnValidBorder(newX, this.player.y);
-            let canMoveY = this.isOnValidBorder(this.player.x, newY);
-            
-            if (canMoveX) {
+            // Restrict movement to borders only - player can only move on valid borders
+            if (this.isOnValidBorder(newX, newY)) {
                 this.player.x = newX;
-            }
-            if (canMoveY) {
                 this.player.y = newY;
+            } else {
+                // If the intended position is not on a border, try to move along the closest border
+                // Check if we can move in individual directions
+                let canMoveX = this.isOnValidBorder(newX, this.player.y);
+                let canMoveY = this.isOnValidBorder(this.player.x, newY);
+                
+                if (canMoveX) {
+                    this.player.x = newX;
+                }
+                if (canMoveY) {
+                    this.player.y = newY;
+                }
             }
         }
         
