@@ -368,6 +368,24 @@ class QixGame {
         this.updateUI();
     }
     
+    // Check if a point is on the border of any claimed territory
+    isOnTerritoryBorder(x, y) {
+        const tolerance = 5; // Allow some tolerance for border detection
+        
+        for (const area of this.territory) {
+            // Check if point is on the border of this territory rectangle
+            const onLeftBorder = Math.abs(x - area.x) <= tolerance && y >= area.y && y <= area.y + area.height;
+            const onRightBorder = Math.abs(x - (area.x + area.width)) <= tolerance && y >= area.y && y <= area.y + area.height;
+            const onTopBorder = Math.abs(y - area.y) <= tolerance && x >= area.x && x <= area.x + area.width;
+            const onBottomBorder = Math.abs(y - (area.y + area.height)) <= tolerance && x >= area.x && x <= area.x + area.width;
+            
+            if (onLeftBorder || onRightBorder || onTopBorder || onBottomBorder) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
     updatePlayer() {
         const prevX = this.player.x;
         const prevY = this.player.y;
@@ -390,13 +408,14 @@ class QixGame {
         this.player.x = Math.max(50, Math.min(this.width - 50, this.player.x));
         this.player.y = Math.max(50, Math.min(this.height - 50, this.player.y));
         
-        // Check if player is on border
-        const onBorder = (
+        // Check if player is on border (outer border or territory border)
+        const onOuterBorder = (
             this.player.x <= 55 || this.player.x >= this.width - 55 ||
             this.player.y <= 55 || this.player.y >= this.height - 55
         );
+        const onTerritoryBorder = this.isOnTerritoryBorder(this.player.x, this.player.y);
         
-        this.player.onBorder = onBorder;
+        this.player.onBorder = onOuterBorder || onTerritoryBorder;
         
         // Add to current line if drawing
         if (this.player.drawing && (this.player.x !== prevX || this.player.y !== prevY)) {
