@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qix - 陣取りゲーム</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>Qix - 陣取りゲーム</h1>
+            <div class="score-panel">
+                <div class="score">スコア: <span id="score">0</span></div>
+                <div class="territory">領土: <span id="territory">0</span>%</div>
+                <div class="lives">残機: <span id="lives">3</span></div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="instructions">
+                <h3>操作方法:</h3>
+                <p>矢印キー: 移動 | スペース: ライン描画開始/終了</p>
+                <p>領域を囲んで陣地を拡大しよう！Qixに触れるとゲームオーバー</p>
+            </div>
+            <button id="startButton">ゲーム開始</button>
+            <button id="pauseButton" disabled>一時停止</button>
+            <button id="resetButton">リセット</button>
+        </div>
+        
+        <div class="game-over" id="gameOver" style="display: none;">
+            <h2>ゲームオーバー</h2>
+            <p>最終スコア: <span id="finalScore">0</span></p>
+            <p>占領率: <span id="finalTerritory">0</span>%</p>
+            <button onclick="resetGame()">もう一度プレイ</button>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
